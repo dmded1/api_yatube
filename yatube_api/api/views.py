@@ -1,8 +1,9 @@
 from rest_framework import viewsets, permissions, status
 from rest_framework.response import Response
 from rest_framework.exceptions import NotAuthenticated
-
+from rest_framework.permissions import IsAuthenticated
 from django.shortcuts import get_object_or_404
+
 from posts.models import Post, Group
 from api.serializers import CommentSerializer, GroupSerializer, PostSerializer
 from api.permissions import IsAuthorOrReadOnly
@@ -26,18 +27,18 @@ class GroupViewSet(viewsets.ReadOnlyModelViewSet):
 class CommentViewSet(viewsets.ModelViewSet):
     serializer_class = CommentSerializer
     permission_classes = [
-        permissions.IsAuthenticatedOrReadOnly, IsAuthorOrReadOnly
+        IsAuthenticated, IsAuthorOrReadOnly
     ]
 
+    def get_post(self):
+        return get_object_or_404(Post, pk=self.kwargs.get('post_id'))
+
     def get_queryset(self):
-        post = get_object_or_404(Post, pk=self.kwargs.get('post_id'))
-        if self.request.user.is_authenticated:
-            return post.comments.all()
-        else:
-            raise NotAuthenticated('Пользователь не аутентифицирован.')
+        post = self.get_post()
+        return post.comments.all()
 
     def perform_create(self, serializer):
-        post = get_object_or_404(Post, pk=self.kwargs.get('post_id'))
+        post = self.get_post()
         serializer.save(author=self.request.user, post=post)
         return Response(serializer.data, status=status.HTTP_201_CREATED)
 
